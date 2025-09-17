@@ -1,0 +1,74 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Root CSS custom properties for theming */
+:root {
+	/* Light theme colors */
+	--color-bg: 255, 255, 255;
+	--color-fg: 0, 0, 0;
+	--color-primary: 59, 130, 246;
+	--color-surface-50: 249, 250, 251;
+	--color-surface-100: 243, 244, 246;
+	--color-surface-200: 229, 231, 235;
+	--color-surface-300: 209, 213, 219;
+	--color-surface-400: 156, 163, 175;
+	--color-surface-500: 107, 114, 128;
+	--color-surface-600: 75, 85, 99;
+	--color-surface-700: 55, 65, 81;
+	--color-surface-800: 31, 41, 55;
+	--color-surface-900: 17, 24, 39;
+}
+
+/* Dark theme colors */
+:root[data-theme='dark'],
+.dark {
+	--color-bg: 17, 24, 39;
+	--color-fg: 255, 255, 255;
+	--color-primary: 96, 165, 250;
+	--color-surface-50: 31, 41, 55;
+	--color-surface-100: 55, 65, 81;
+	--color-surface-200: 75, 85, 99;
+	--color-surface-300: 107, 114, 128;
+	--color-surface-400: 156, 163, 175;
+	--color-surface-500: 209, 213, 219;
+	--color-surface-600: 229, 231, 235;
+	--color-surface-700: 243, 244, 246;
+	--color-surface-800: 249, 250, 251;
+	--color-surface-900: 255, 255, 255;
+}
+
+/* Base styles */
+html,
+body {
+	margin: 0;
+	padding: 0;
+	min-height: 100vh;
+	font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+		Oxygen, Ubuntu, Cantarell, sans-serif;
+	background-color: rgb(var(--color-bg));
+	color: rgb(var(--color-fg));
+	transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Screen reader only utility */
+.sr-only {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* Smooth theme transitions */
+*,
+*::before,
+*::after {
+	transition-property: background-color, border-color, color, fill, stroke;
+	transition-duration: 200ms;
+	transition-timing-function: ease-in-out;
+}
