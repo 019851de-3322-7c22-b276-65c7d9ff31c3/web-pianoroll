@@ -1,0 +1,348 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <!-- <script src="https://unpkg.com/tone@latest/build/Tone.js"></script> -->
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.3.3/Tone.js" integrity="sha512-uUxSKNj3pJkIP0fK7TckAsIT/au7UdV68s5SWFVuXASCW+pczljSMh7g71YN8RoA/NuitsicvTR9CDwggqnzCg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.3.3/Tone.min.js" integrity="sha512-I79wZUgmp74ncFYBjsH+8919KYvBZT1/opDMPvRjdWJq+D9+AhQFyhKpVEdSmzxZ7gsxWZvNhXOK6W1FaHznzA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- https://cdnjs.cloudflare.com/ajax/libs/tone/15.3.3/Tone.js.map -->
+  <!-- https://cdnjs.cloudflare.com/ajax/libs/tone/15.3.3/Tone.js.LICENSE.txt -->
+
+  <script src="https://unpkg.com/@tonejs/ui@0.0.8/build/tonejs-ui.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/tonal/browser/tonal.min.js"></script>
+
+  <!-- Определяем importmap для разрешения имен модулей -->
+  <script type="importmap">
+    {
+      "imports": {
+        "tone": "./vendor/Tone.min.js",
+        "@tonaljs/tonal": "./vendor/tonal.min.js",
+        "@tonejs/midi": "./vendor/Midi.js"
+      }
+    }
+  </script>
+  <style type="text/css">
+    /* ... ваш CSS ... */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      background-color: #1a1a1a;
+      color: #eee;
+    }
+    tone-top-bar {
+      flex-shrink: 0;
+    }
+    tone-content {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    #Description {
+      margin-bottom: 20px;
+      font-size: 1.1em;
+      text-align: center;
+    }
+    #FileDrop {
+      border: 2px dashed #555;
+      padding: 30px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 20px;
+      background-color: #2a2a2a;
+      transition: background-color 0.2s;
+      position: relative;
+    }
+    #FileDrop.Hover {
+      background-color: #3a3a3a;
+    }
+    #FileDrop input[type="file"] {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+    #FileDrop #Text {
+      font-size: 1.2em;
+      color: #aaa;
+    }
+    #Results {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 20px;
+    }
+    #ResultsText {
+      width: 100%;
+      flex-grow: 1;
+      background-color: #1a1a1a;
+      border: 1px solid #444;
+      color: #0f0;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 0.9em;
+      box-sizing: border-box;
+      resize: vertical; /* Allow vertical resizing */
+      min-height: 150px; /* Minimum height */
+    }
+    tone-play-toggle {
+      align-self: center;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+      justify-content: center;
+      background-color: #2a2a2a;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .control-group label {
+      margin-bottom: 5px;
+      color: #ccc;
+      font-size: 0.9em;
+    }
+    .control-group select, .control-group input[type="checkbox"] {
+      background-color: #3a3a3a;
+      border: 1px solid #555;
+      color: #eee;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+    .control-group input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      margin-top: 5px; /* Adjust for alignment */
+    }
+  </style>
+</head><body>
+  <tone-top-bar></tone-top-bar>
+  <tone-content>
+    <div id="Description">
+      Parse a MIDI file into a Tone.js-friendly JSON format and play with custom tunings.
+    </div>
+    <div id="FileDrop">
+      <div id="Text">
+        Drop a midi file here
+      </div>
+      <input type="file" accept="audio/midi">
+    </div>
+
+    <!-- Добавляем элементы управления -->
+    <div class="controls">
+      <div class="control-group">
+      <label for="tuningSystem">Музыкальный строй:</label>
+      <select id="tuningSystem">
+        <option value="equal">Равномерно темперированный строй</option>
+        <option value="natural">Натуральный строй</option>
+        <option value="pythagorean">Пифагоров строй</option>
+        <option value="pentatonic">Пентаграмный строй</option>
+      </select>
+      </div>
+      
+      <div class="control-group">
+      <label for="useInternalSynth">Использовать встроенный синтезатор:</label>
+      <input type="checkbox" id="useInternalSynth" checked>
+      </div>
+      
+      <div class="control-group">
+      <label for="useExternalSynth">Подключить внешний синтезатор:</label>
+      <input type="checkbox" id="useExternalSynth">
+      </div>
+      
+      <div class="control-group">
+      <label for="synthType">Тип синтезатора:</label>
+      <select id="synthType">
+        <option value="default">Basic Synth (Triangle)</option>
+        <option value="fm">FM Synth</option>
+        <option value="am">AM Synth</option>
+        <option value="membrane">Membrane Synth</option>
+      </select>
+      </div>
+    </div>
+
+    <div id="Results">
+      <textarea id="ResultsText" placeholder="json output..."></textarea>
+    </div>
+    <tone-play-toggle disabled=""></tone-play-toggle>
+  </tone-content>
+
+  <!-- 4. Загружаем ваш pianoroll-core.js как модуль -->
+  <script type="module" src="pianoroll-core.js"></script>
+
+  <!-- 5. Ваш основной скрипт, также как модуль -->
+  <script type="module">
+    // Импортируем необходимые модули
+    // import { Midi } from '@tonejs/midi'; // Использует importmap
+
+    import * as Tone from 'tone';
+
+    import * as MidiModule from '@tonejs/midi'; 
+
+    import PianoRollCore from './pianoroll-core.js'; // Ваш модуль
+
+    if (
+      !(
+        window.File &&
+        window.FileReader &&
+        window.FileList &&
+        window.Blob
+      )
+    ) {
+      document.querySelector("#FileDrop #Text").textContent =
+        "Reading files not supported by this browser";
+    } else {
+      const fileDrop = document.querySelector("#FileDrop");
+
+      fileDrop.addEventListener("dragenter", () =>
+        fileDrop.classList.add("Hover")
+      );
+
+      fileDrop.addEventListener("dragleave", () =>
+        fileDrop.classList.remove("Hover")
+      );
+
+      fileDrop.addEventListener("drop", () =>
+        fileDrop.classList.remove("Hover")
+      );
+
+      document
+        .querySelector("#FileDrop input")
+        .addEventListener("change", (e) => {
+          const files = e.target.files;
+          if (files.length > 0) {
+            const file = files[0];
+            document.querySelector(
+              "#FileDrop #Text"
+            ).textContent = file.name;
+            parseFile(file);
+          }
+        });
+    }
+
+    let currentMidi = null;
+    let pianoRoll = null; // Объявляем pianoRoll здесь, чтобы он был доступен
+
+    function parseFile(file) {
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        const midi = new Midi(e.target.result);
+        currentMidi = midi;
+
+        // Инициализируем PianoRollCore, если еще не инициализирован
+        if (!pianoRoll) {
+          pianoRoll = new PianoRollCore({
+            tuningSystem: document.querySelector('#tuningSystem').value,
+            useSynth: document.querySelector('#useInternalSynth').checked,
+            synthType: document.querySelector('#synthType').value
+          });
+           // Подписываем внешний синтезатор, если чекбокс активен при загрузке MIDI
+          if (document.querySelector('#useExternalSynth').checked) {
+            pianoRoll.subscribe(externalSynthCallback);
+          }
+        } else {
+          pianoRoll.stop(); // Останавливаем предыдущее воспроизведение, если оно было
+        }
+        
+        pianoRoll.loadMidiJson(currentMidi);
+
+        document.querySelector(
+          "#ResultsText"
+        ).value = JSON.stringify(pianoRoll.getNotes(), undefined, 2);
+        document
+          .querySelector("tone-play-toggle")
+          .removeAttribute("disabled")
+          .addEventListener("play", async (e) => { // Добавляем async здесь
+              const playing = e.detail;
+              if (playing && currentMidi && pianoRoll) {
+                  // !!! ВАЖНО: Запускаем Tone.js AudioContext после действия пользователя
+                  await Tone.start(); 
+                  pianoRoll.play();
+              } else if (pianoRoll) {
+                  pianoRoll.stop();
+              }
+          });
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    // Обработка кнопки воспроизведения
+    document
+      .querySelector("tone-play-toggle")
+      .addEventListener("play", (e) => {
+        const playing = e.detail;
+        if (playing && currentMidi && pianoRoll) {
+          pianoRoll.play();
+        } else if (pianoRoll) {
+          pianoRoll.stop();
+        }
+      });
+
+    // Обработчики для элементов управления
+    document.querySelector('#tuningSystem').addEventListener('change', (e) => {
+      if (pianoRoll) {
+        pianoRoll.setTuningSystem(e.target.value);
+        document.querySelector('#ResultsText').value =
+          JSON.stringify(pianoRoll.getNotes(), null, 2);
+      }
+    });
+
+    document.querySelector('#useInternalSynth').addEventListener('change', (e) => {
+      if (pianoRoll) {
+        pianoRoll.toggleSynth(e.target.checked);
+      }
+    });
+
+    document.querySelector('#synthType').addEventListener('change', (e) => {
+      if (pianoRoll) {
+        pianoRoll.setSynthType(e.target.value);
+      }
+    });
+
+    // Пример подписки на события нот для внешнего синтезатора
+    const externalSynthCallback = (event) => {
+      if (event.type === 'noteOn') {
+        console.log(`[External Synth] Playing note: ${event.note} (${event.frequency.toFixed(2)}Hz) at ${event.time.toFixed(2)}s for ${event.duration.toFixed(2)}s`);
+        // Здесь был бы код для запуска внешнего синтезатора
+      } else if (event.type === 'noteOff') {
+        console.log(`[External Synth] Stopping note: ${event.note} at ${event.time.toFixed(2)}s`);
+        // Здесь был бы код для остановки ноты на внешнем синтезаторе
+      } else if (event.type === 'stop') {
+        console.log(`[External Synth] Playback stopped.`);
+      }
+    };
+
+    document.querySelector('#useExternalSynth').addEventListener('change', (e) => {
+      if (pianoRoll) {
+        if (e.target.checked) {
+          pianoRoll.subscribe(externalSynthCallback);
+          console.log("External synth callback subscribed.");
+        } else {
+          pianoRoll.unsubscribe(externalSynthCallback);
+          console.log("External synth callback unsubscribed.");
+        }
+      }
+    });
+
+    // Инициализация Tone.Transport (если еще не сделано)
+    // Tone.js обычно инициализирует его сам, но убедимся, что он запущен
+    // Tone.Transport.start() будет вызван при запуске воспроизведения
+  </script>
+</body></html>
