@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PianoRoll Tests</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .test-section { 
+            background: white; 
+            margin: 10px 0; 
+            padding: 15px; 
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-result { 
+            padding: 8px; 
+            margin: 5px 0; 
+            border-radius: 3px;
+            font-weight: bold;
+        }
+        .pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .summary { 
+            background: #e2e3e5; 
+            padding: 15px; 
+            margin-top: 20px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        h2 { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 5px; }
+        code { background: #f8f9fa; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>🎹 PianoRoll Core Tests</h1>
+    
+    <!-- Загружаем библиотеки -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.3.3/Tone.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tonal/browser/tonal.min.js"></script>
+    
+    <div id="test-results"></div>
+    
+    <script type="module">
+        import PianoRollCore from './pianoroll-core.js';
+        
+        // Тестовый фреймворк
+        class SimpleTest {
+            constructor() {
+                this.results = [];
+                this.currentSection = null;
+            }
+            
+            section(name) {
+                this.currentSection = name;
+                this.log(`\n=== ${name} ===`, 'info');
+            }
+            
+            test(name, testFn) {
+                try {
+                    const result = testFn();
+                    if (result === true || result === undefined) {
+                        this.pass(name);
+                    } else {
+                        this.fail(name, `Test returned: ${result}`);
+                    }
+                } catch (error) {
+                    this.fail(name, error.message);
+                }
+            }
+            
+            async asyncTest(name, testFn) {
+                try {
+                    const result = await testFn();
+                    if (result === true || result === undefined) {
+                        this.pass(name);
+                    } else {
+                        this.fail(name, `Test returned: ${result}`);
+                    }
+                } catch (error) {
+                    this.fail(name, error.message);
+                }
+            }
+            
+            assertEqual(actual, expected, name) {
+                if (actual === expected) {
+                    this.pass(name || `${actual} === ${expected}`);
+                } else {
+                    this.fail(name || `Assertion failed`, `Expected: ${expected}, Got: ${actual}`);
+                }
+            }
+            
+            assertAlmostEqual(actual, expected, tolerance = 0.01, name) {
+                const diff = Math.abs(actual - expected);
+                if (diff <= tolerance) {
+                    this.pass(name || `${actual} ≈ ${expected} (±${tolerance})`);
+                } else {
+                    this.fail(name || `Almost equal assertion failed`, `Expected: ${expected}±${tolerance}, Got: ${actual} (diff: ${diff.toFixed(4)})`);
+                }
+            }
+            
+            assertTrue(condition, name) {
+                if (condition) {
+                    this.pass(name || 'Condition is true');
+                } else {
+                    this.fail(name || 'Assertion failed', 'Expected true, got false');
+                }
+            }
+            
+            assertFalse(condition, name) {
+                if (!condition) {
+                    this.pass(name || 'Condition is false');
+                } else {
+                    this.fail(name || 'Assertion failed', 'Expected false, got true');
+                }
+            }
+            
+            pass(name) {
+                this.results.push({type: 'pass', name, section: this.currentSection});
+                this.log(`✅ ${name}`, 'pass');
+            }
+            
+            fail(name, details) {
+                this.results.push({type: 'fail', name, details, section: this.currentSection});
+                this.log(`❌ ${name}: ${details}`, 'fail');
+            }
+            
+            warning(message) {
+                this.log(`⚠️ ${message}`, 'warning');
+            }
+            
+            log(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = `test-result ${type}`;
+                div.innerHTML = message.replace(/\n/g, '<br>');
+                document.getElementById('test-results').appendChild(div);
+                console.log(message);
+            }
+            
+            summary() {
+                const passed = this.results.filter(r => r.type === 'pass').length;
+                const failed = this.results.filter(r => r.type === 'fail').length;
+                const total = this.results.length;
+                
+                const summaryDiv = document.createElement('div');
+                summaryDiv.className = 'summary';
+                summaryDiv.innerHTML = `
+                    <h3>📊 Test Summary</h3>
+                    <p>Total tests: ${total}</p>
+                    <p>Passed: ${passed} (${(passed/total*100).toFixed(1)}%)</p>
+                    <p>Failed: ${failed} (${(failed/total*100).toFixed(1)}%)</p>
+                    <p>Success rate: ${failed === 0 ? '🎉 ALL TESTS PASSED!' : failed === 1 ? '⚠️ 1 test failed' : `❌ ${failed} tests failed`}</p>
+                `;
+                document.getElementById('test-results').appendChild(summaryDiv);
+                
+                console.log(`\n=== SUMMARY ===\nTotal: ${total}, Passed: ${passed}, Failed: ${failed}`);
+                return {total, passed, failed};
+            }
+        }
+        
+        // Тестовые данные
+        const testMidiData = {
+            name: "Test Song",
+            duration: 2.0,
+            tracks: [{
+                name: "Test Track",
+                notes: [
+                    {name: "C4", midi: 60, time: 0.0, duration: 0.5, velocity: 0.8},
+                    {name: "E4", midi: 64, time: 0.5, duration: 0.5, velocity: 0.7},
+                    {name: "G4", midi: 67, time: 1.0, duration: 0.5, velocity: 0.9},
+                    {name: "C5", midi: 72, time: 1.5, duration: 0.5, velocity: 0.6}
+                ]
+            }]
+        };
+        
+        // Запускаем тесты
+        const test = new SimpleTest();
+        
+        // Проверяем доступность библиотек
+        test.section("🔧 Environment Setup");
+        test.assertTrue(typeof window.Tone !== 'undefined', "Tone.js is available");
+        test.assertTrue(typeof window.Tonal !== 'undefined', "Tonal.js is available");
+        test.assertTrue(typeof PianoRollCore === 'function', "PianoRollCore is available");
+        
+        // Тесты конструктора
+        test.section("🏗️ Constructor Tests");
+        
+        let piano;
+        test.test("Create default PianoRollCore instance", () => {
+            piano = new PianoRollCore();
+            test.assertTrue(piano instanceof PianoRollCore, "Instance created");
+            test.assertEqual(piano.options.tuningSystem, 'equal', "Default tuning system");
+            test.assertEqual(piano.options.useSynth, true, "Default synth usage");
+            test.assertEqual(piano.options.synthType, 'default', "Default synth type");
+        });
+        
+        test.test("Create PianoRollCore with custom options", () => {
+            const customPiano = new PianoRollCore({
+                tuningSystem: 'natural',
+                useSynth: false,
+                synthType: 'fm'
+            });
+            test.assertEqual(customPiano.options.tuningSystem, 'natural', "Custom tuning system");
+            test.assertEqual(customPiano.options.useSynth, false, "Custom synth usage");
+            test.assertEqual(customPiano.options.synthType, 'fm', "Custom synth type");
+        });
+        
+        // Тесты частот
+        test.section("🎵 Frequency Conversion Tests");
+        
+        test.test("Equal temperament frequencies", () => {
+            piano.setTuningSystem('equal');
+            const freq_c4 = piano.noteToFrequency('C4');
+            const expected_c4 = window.Tone.Frequency('C4').toFrequency();
+            test.assertAlmostEqual(freq_c4, expected_c4, 0.01, "C4 frequency in equal temperament");
+        });
+        
+        test.test("Natural tuning frequencies", () => {
+            piano.setTuningSystem('natural');
+            const freq_c4 = piano.noteToFrequency('C4');
+            const freq_e4 = piano.noteToFrequency('E4');
+            const freq_g4 = piano.noteToFrequency('G4');
+            
+            // В натуральном строе E4 должно быть 5/4 от C4, G4 - 3/2 от C4
+            test.assertAlmostEqual(freq_e4 / freq_c4, 5/4, 0.001, "E4/C4 ratio in natural tuning (5:4)");
+            test.assertAlmostEqual(freq_g4 / freq_c4, 3/2, 0.001, "G4/C4 ratio in natural tuning (3:2)");
+        });
+        
+        test.test("Pythagorean tuning frequencies", () => {
+            piano.setTuningSystem('pythagorean');
+            const freq_c4 = piano.noteToFrequency('C4');
+            const freq_g4 = piano.noteToFrequency('G4');
+            
+            // В пифагоровом строе G4 должно быть 3/2 от C4
+            test.assertAlmostEqual(freq_g4 / freq_c4, 3/2, 0.001, "G4/C4 ratio in Pythagorean tuning (3:2)");
+        });
+        
+        test.test("Pentatonic tuning frequencies", () => {
+            piano.setTuningSystem('pentatonic');
+            const freq_c4 = piano.noteToFrequency('C4');
+            const freq_d4 = piano.noteToFrequency('D4');
+            const freq_e4 = piano.noteToFrequency('E4');
+            const freq_g4 = piano.noteToFrequency('G4');
+            const freq_a4 = piano.noteToFrequency('A4');
+            
+            // Проверяем пентатоническую шкалу
+            test.assertAlmostEqual(freq_d4 / freq_c4, 9/8, 0.001, "D4/C4 ratio in pentatonic (9:8)");
+            test.assertAlmostEqual(freq_e4 / freq_c4, 5/4, 0.001, "E4/C4 ratio in pentatonic (5:4)");
+            test.assertAlmostEqual(freq_g4 / freq_c4, 3/2, 0.001, "G4/C4 ratio in pentatonic (3:2)");
+            test.assertAlmostEqual(freq_a4 / freq_c4, 5/3, 0.001, "A4/C4 ratio in pentatonic (5:3)");
+        });
+        
+        // Тесты загрузки MIDI
+        test.section("🎼 MIDI Loading Tests");
+        
+        test.test("Load MIDI data", () => {
+            piano.setTuningSystem('equal');
+            const notes = piano.loadMidiJson(testMidiData);
+            
+            test.assertEqual(notes.length, 4, "Correct number of notes loaded");
+            test.assertEqual(notes[0].name, 'C4', "First note is C4");
+            test.assertEqual(notes[0].time, 0.0, "First note starts at time 0");
+            test.assertEqual(notes[3].name, 'C5', "Last note is C5");
+            
+            // Проверяем, что частоты вычислены
+            test.assertTrue(notes[0].frequency > 0, "C4 has valid frequency");
+            test.assertTrue(notes[1].frequency > 0, "E4 has valid frequency");
+        });
+        
+        test.test("Get notes array", () => {
+            const notes = piano.getNotes();
+            test.assertEqual(notes.length, 4, "getNotes returns correct length");
+            test.assertTrue('frequency' in notes[0], "Notes have frequency property");
+            test.assertTrue('name' in notes[0], "Notes have name property");
+            test.assertTrue('time' in notes[0], "Notes have time property");
+        });
+        
+        // Тесты настройки строя
+        test.section("🎶 Tuning System Tests");
+        
+        test.test("Change tuning system", () => {
+            piano.loadMidiJson(testMidiData);
+            
+            const equalFreq = piano.noteToFrequency('C4');
+            piano.setTuningSystem('natural');
+            const naturalFreq = piano.noteToFrequency('C4');
+            
+            test.assertAlmostEqual(equalFreq, naturalFreq, 1, "C4 frequency similar between equal and natural");
+            
+            // Проверяем, что ноты обновились
+            const notes = piano.getNotes();
+            test.assertTrue(notes[0].frequency > 0, "Notes updated with new frequencies");
+        });
+        
+        test.test("Invalid tuning system", () => {
+            let warningCalled = false;
+            const originalWarn = console.warn;
+            console.warn = () => { warningCalled = true; };
+            
+            piano.setTuningSystem('invalid_system');
+            test.assertEqual(piano.options.tuningSystem, 'equal', "Falls back to equal temperament");
+            
+            console.warn = originalWarn;
+            test.assertTrue(warningCalled, "Warning was displayed");
+        });
+        
+        // Тесты синтезатора
+        test.section("🎹 Synthesizer Tests");
+        
+        test.test("Toggle synthesizer", () => {
+            piano.toggleSynth(true);
+            test.assertTrue(piano.options.useSynth, "Synth enabled");
+            test.assertTrue(piano.synth !== null, "Synth instance created");
+            
+            piano.toggleSynth(false);
+            test.assertFalse(piano.options.useSynth, "Synth disabled");
+        });
+        
+        test.test("Change synthesizer type", () => {
+            piano.toggleSynth(true);
+            
+            piano.setSynthType('fm');
+            test.assertEqual(piano.options.synthType, 'fm', "FM synth type set");
+            
+            piano.setSynthType('am');
+            test.assertEqual(piano.options.synthType, 'am', "AM synth type set");
+            
+            piano.setSynthType('membrane');
+            test.assertEqual(piano.options.synthType, 'membrane', "Membrane synth type set");
+        });
+        
+        // Тесты подписки
+        test.section("📡 Subscription Tests");
+        
+        test.test("Subscribe to events", () => {
+            let eventReceived = null;
+            const callback = (event) => {
+                eventReceived = event;
+            };
+            
+            piano.subscribe(callback);
+            test.assertEqual(piano.noteSubscribers.length, 1, "Callback subscribed");
+            
+            // Имитируем событие
+            piano._notifySubscribers({type: 'test', data: 'test_data'});
+            test.assertEqual(eventReceived.type, 'test', "Event received");
+            test.assertEqual(eventReceived.data, 'test_data', "Event data correct");
+        });
+        
+        test.test("Unsubscribe from events", () => {
+            const callback = () => {};
+            piano.subscribe(callback);
+            piano.unsubscribe(callback);
+            test.assertEqual(piano.noteSubscribers.length, 0, "Callback unsubscribed");
+        });
+        
+        // Тесты управления воспроизведением
+        test.section("▶️ Playback Control Tests");
+        
+        test.test("Play/Stop without notes", () => {
+            const emptyPiano = new PianoRollCore();
+            emptyPiano.play();
+            test.assertFalse(emptyPiano.isPlaying, "Should not play without notes");
+        });
+        
+        test.test("Play/Stop with notes", () => {
+            piano.loadMidiJson(testMidiData);
+            
+            test.assertFalse(piano.isPlaying, "Initially not playing");
+            
+            // Тестируем только состояние, не реальное воспроизведение
+            // (так как для этого нужно пользовательское взаимодействие)
+        });
+        
+        test.test("Clear notes", () => {
+            piano.loadMidiJson(testMidiData);
+            test.assertEqual(piano.getNotes().length, 4, "Notes loaded");
+            
+            piano.clear();
+            test.assertEqual(piano.getNotes().length, 0, "Notes cleared");
+            test.assertFalse(piano.isPlaying, "Stopped playing after clear");
+        });
+        
+        // Тесты очистки ресурсов
+        test.section("🧹 Cleanup Tests");
+        
+        test.test("Dispose resources", () => {
+            const disposePiano = new PianoRollCore({useSynth: true});
+            disposePiano.loadMidiJson(testMidiData);
+            
+            disposePiano.dispose();
+            test.assertEqual(disposePiano.synth, null, "Synth disposed");
+            test.assertEqual(disposePiano.notes.length, 0, "Notes cleared");
+            test.assertEqual(disposePiano.noteSubscribers.length, 0, "Subscribers cleared");
+        });
+        
+        // Финальное резюме
+        test.section("📋 Test Summary");
+        const summary = test.summary();
+        
+        // Устанавливаем глобальную переменную для интеграционных тестов
+        window.pianoTestResults = summary;
+        window.testPianoRollCore = PianoRollCore;
+        
+        if (summary.failed === 0) {
+            test.log("🎉 All unit tests passed! Ready for integration testing.", 'pass');
+        } else {
+            test.log(`⚠️ ${summary.failed} tests failed. Please fix before proceeding.`, 'fail');
+        }
+        
+    </script>
+</body>
+</html>

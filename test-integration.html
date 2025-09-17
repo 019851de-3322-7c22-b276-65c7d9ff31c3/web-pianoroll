@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integration Tests</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            margin: 20px;
+            background: #f8f9fa;
+        }
+        .test-container { 
+            background: white; 
+            margin: 15px 0; 
+            padding: 20px; 
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+        }
+        .result { 
+            padding: 10px; 
+            margin: 8px 0; 
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        h2 { color: #495057; border-bottom: 3px solid #28a745; padding-bottom: 8px; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        .manual-test { background: #e9ecef; padding: 15px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔗 Integration Tests</h1>
+    
+    <!-- Библиотеки -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/15.3.3/Tone.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tonal/browser/tonal.min.js"></script>
+    <script src="https://unpkg.com/@tonejs/midi@2.0.28/build/Midi.js"></script>
+    
+    <div id="test-results"></div>
+    
+    <div class="manual-test">
+        <h3>👤 Manual Tests</h3>
+        <p>These tests require user interaction:</p>
+        <button onclick="testAudioPlayback()">Test Audio Playback</button>
+        <button onclick="testMidiFileUpload()">Test MIDI Upload</button>
+        <button onclick="testUIControls()">Test UI Controls</button>
+    </div>
+    
+    <script type="module">
+        import PianoRollCore from './pianoroll-core.js';
+        
+        class IntegrationTest {
+            constructor() {
+                this.results = [];
+            }
+            
+            log(message, type = 'info') {
+                const div = document.createElement('div');
+                div.className = `result ${type}`;
+                div.innerHTML = message;
+                document.getElementById('test-results').appendChild(div);
+                console.log(message);
+            }
+            
+            async testLibraryCompatibility() {
+                this.log("<h2>📚 Library Compatibility Tests</h2>", 'info');
+                
+                try {
+                    // Test Tone.js совместимость
+                    const freq = Tone.Frequency('A4').toFrequency();
+                    if (Math.abs(freq - 440) < 0.1) {
+                        this.log("✅ Tone.js frequency conversion works", 'pass');
+                    } else {
+                        this.log(`❌ Tone.js frequency issue: ${freq} Hz instead of 440 Hz`, 'fail');
+                    }
+                    
+                    // Test Tonal.js совместимость
+                    const note = Tonal.Note.get('C4');
+                    if (note.name === 'C' && note.oct === 4) {
+                        this.log("✅ Tonal.js note parsing works", 'pass');
+                    } else {
+                        this.log(`❌ Tonal.js parsing issue: ${JSON.stringify(note)}`, 'fail');
+                    }
+                    
+                    // Test MIDI library
+                    if (typeof Midi === 'function') {
+                        this.log("✅ MIDI library loaded", 'pass');
+                    } else {
+                        this.log("❌ MIDI library not available", 'fail');
+                    }
+                    
+                    // Test PianoRollCore совместимость с Tone.js
+                    const piano = new PianoRollCore();
+                    const synthTest = new Tone.Synth().toDestination();
+                    synthTest.dispose();
+                    this.log("✅ PianoRollCore integrates with Tone.js", 'pass');
+                    
+                } catch (error) {
+                    this.log(`❌ Library compatibility error: ${error.message}`, 'fail');
+                }
+            }
+            
+            async testFullWorkflow() {
+                this.log("<h2>🔄 Full Workflow Tests</h2>", 'info');
+                
+                try {
+                    // Создаем тестовые MIDI данные
+                    const testMidi = {
+                        name: "Integration Test",
+                        duration: 3.0,
+                        tracks: [{
+                            name: "Test Track",
+                            notes: [
+                                {name: "C4", midi: 60, time: 0.0, duration: 0.5, velocity: 0.8},
+                                {name: "D4", midi: 62, time: 0.5, duration: 0.5, velocity: 0.7},
+                                {name: "E4", midi: 64, time: 1.0, duration: 0.5, velocity: 0.9},
+                                {name: "F4", midi: 65, time: 1.5, duration: 0.5, velocity: 0.6},
+                                {name: "G4", midi: 67, time: 2.0, duration: 0.5, velocity: 0.8},
+                                {name: "A4", midi: 69, time: 2.5, duration: 0.5, velocity: 0.7}
+                            ]
+                        }]
+                    };
+                    
+                    // 1. Создание экземпляра
+                    const piano = new PianoRollCore({
+                        tuningSystem: 'equal',
+                        useSynth: false,  // Отключаем звук для теста
+                        synthType: 'default'
+                    });
+                    
+                    // 2. Загрузка данных
+                    const loadedNotes = piano.loadMidiJson(testMidi);
+                    if (loadedNotes.length === 6) {
+                        this.log("✅ MIDI data loaded successfully", 'pass');
+                    } else {
+                        this.log(`❌ Expected 6 notes, got ${loadedNotes.length}`, 'fail');
+                    }
+                    
+                    // 3. Проверка частот в разных строях
+                    const tunings = ['equal', 'natural', 'pythagorean', 'pentatonic'];
+                    let tuningTestsPassed = 0;
+                    
+                    for (const tuning of tunings) {
+                        try {
+                            piano.setTuningSystem(tuning);
+                            const notes = piano.getNotes();
+                            if (notes.length === 6 && notes.every(n => n.frequency > 0)) {
+                                tuningTestsPassed++;
+                                this.log(`✅ ${tuning} tuning works (C4: ${notes[0].frequency.toFixed(2)} Hz)`, 'pass');
+                            } else {
+                                this.log(`❌ ${tuning} tuning failed`, 'fail');
+                            }
+                        } catch (error) {
+                            this.log(`❌ ${tuning} tuning error: ${error.message}`, 'fail');
+                        }
+                    }
+                    
+                    if (tuningTestsPassed === 4) {
+                        this.log("✅ All tuning systems work correctly", 'pass');
+                    }
+                    
+                    // 4. Тест подписок
+                    let eventCount = 0;
+                    const eventCallback = (event) => {
+                        eventCount++;
+                    };
+                    
+                    piano.subscribe(eventCallback);
+                    piano._notifySubscribers({type: 'test'});
+                    
+                    if (eventCount === 1) {
+                        this.log("✅ Event subscription system works", 'pass');
+                    } else {
+                        this.log(`❌ Event subscription failed (count: ${eventCount})`, 'fail');
+                    }
+                    
+                    // 5. Тест синтезатора (без звука)
+                    piano.toggleSynth(true);
+                    if (piano.synth && piano.options.useSynth) {
+                        this.log("✅ Synthesizer initialization works", 'pass');
+                    } else {
+                        this.log("❌ Synthesizer initialization failed", 'fail');
+                    }
+                    
+                    // 6. Тест смены типов синтезатора
+                    const synthTypes = ['default', 'fm', 'am', 'membrane'];
+                    let synthTestsPassed = 0;
+                    
+                    for (const type of synthTypes) {
+                        try {
+                            piano.setSynthType(type);
+                            if (piano.options.synthType === type && piano.synth) {
+                                synthTestsPassed++;
+                            }
+                        } catch (error) {
+                            this.log(`❌ Synth type '${type}' failed: ${error.message}`, 'fail');
+                        }
+                    }
+                    
+                    if (synthTestsPassed === 4) {
+                        this.log("✅ All synthesizer types work", 'pass');
+                    } else {
+                        this.log(`❌ Only ${synthTestsPassed}/4 synth types work`, 'warning');
+                    }
+                    
+                    // 7. Тест очистки
+                    piano.clear();
+                    if (piano.getNotes().length === 0) {
+                        this.log("✅ Clear function works", 'pass');
+                    }
+                    
+                    piano.dispose();
+                    this.log("✅ Full workflow test completed", 'pass');
+                    
+                } catch (error) {
+                    this.log(`❌ Workflow test failed: ${error.message}`, 'fail');
+                }
+            }
+            
+            async testErrorHandling() {
+                this.log("<h2>⚠️ Error Handling Tests</h2>", 'info');
+                
+                const piano = new PianoRollCore();
+                
+                try {
+                    // Тест пустых данных
+                    piano.loadMidiJson({tracks: []});
+                    if (piano.getNotes().length === 0) {
+                        this.log("✅ Handles empty MIDI data", 'pass');
+                    }
+                    
+                    // Тест некорректных нот
+                    piano.loadMidiJson({
+                        tracks: [{
+                            notes: [
+                                {name: "invalid_note", midi: -1, time: 0, duration: 0.5, velocity: 0.8}
+                            ]
+                        }]
+                    });
+                    const notes = piano.getNotes();
+                    if (notes.length === 1 && notes[0].frequency > 0) {
+                        this.log("✅ Handles invalid note names gracefully", 'pass');
+                    }
+                    
+                    // Тест некорректного строя
+                    let warningLogged = false;
+                    const originalWarn = console.warn;
+                    console.warn = () => { warningLogged = true; };
+                    
+                    piano.setTuningSystem('nonexistent');
+                    if (piano.options.tuningSystem === 'equal' && warningLogged) {
+                        this.log("✅ Handles invalid tuning system", 'pass');
+                    }
+                    
+                    console.warn = originalWarn;
+                    
+                    // Тест ошибки в callback
+                    let errorHandled = false;
+                    const originalError = console.error;
+                    console.error = () => { errorHandled = true; };
+                    
+                    const faultyCallback = () => {
+                        throw new Error("Test error");
+                    };
+                    
+                    piano.subscribe(faultyCallback);
+                    piano._notifySubscribers({type: 'test'});
+                    
+                    if (errorHandled) {
+                        this.log("✅ Handles callback errors gracefully", 'pass');
+                    }
+                    
+                    console.error = originalError;
+                    
+                } catch (error) {
+                    this.log(`❌ Error handling test failed: ${error.message}`, 'fail');
+                }
+            }
+            
+            async testPerformance() {
+                this.log("<h2>🏁 Performance Tests</h2>", 'info');
+                
+                try {
+                    const piano = new PianoRollCore({useSynth: false});
+                    
+                    // Генерируем большое количество нот
+                    const manyNotes = {
+                        tracks: [{
+                            notes: []
+                        }]
+                    };
+                    
+                    for (let i = 0; i < 1000; i++) {
+                        manyNotes.tracks[0].notes.push({
+                            name: `C${Math.floor(i / 12) + 4}`,
+                            midi: 60 + (i % 12),
+                            time: i * 0.1,
+                            duration: 0.1,
+                            velocity: 0.8
+                        });
+                    }
+                    
+                    // Тест загрузки
+                    const startLoad = performance.now();
+                    piano.loadMidiJson(manyNotes);
+                    const loadTime = performance.now() - startLoad;
+                    
+                    if (loadTime < 100) {  // Меньше 100мс
+                        this.log(`✅ Load performance: ${loadTime.toFixed(1)}ms for 1000 notes`, 'pass');
+                    } else {
+                        this.log(`⚠️ Slow load performance: ${loadTime.toFixed(1)}ms for 1000 notes`, 'warning');
+                    }
+                    
+                    // Тест смены строя
+                    const startTuning = performance.now();
+                    piano.setTuningSystem('natural');
+                    const tuningTime = performance.now() - startTuning;
+                    
+                    if (tuningTime < 50) {  // Меньше 50мс
+                        this.log(`✅ Tuning change performance: ${tuningTime.toFixed(1)}ms for 1000 notes`, 'pass');
+                    } else {
+                        this.log(`⚠️ Slow tuning change: ${tuningTime.toFixed(1)}ms for 1000 notes`, 'warning');
+                    }
+                    
+                } catch (error) {
+                    this.log(`❌ Performance test failed: ${error.message}`, 'fail');
+                }
+            }
+            
+            async runAll() {
+                this.log("<h1>🎆 Starting Integration Tests</h1>", 'info');
+                
+                await this.testLibraryCompatibility();
+                await this.testFullWorkflow();
+                await this.testErrorHandling();
+                await this.testPerformance();
+                
+                this.log("<h2>✅ Integration Tests Complete</h2>", 'info');
+                this.log("📝 See manual tests section below for interactive testing.", 'info');
+            }
+        }
+        
+        // Manual test functions
+        window.testAudioPlayback = async function() {
+            try {
+                await Tone.start();
+                const piano = new PianoRollCore({
+                    tuningSystem: 'equal',
+                    useSynth: true,
+                    synthType: 'default'
+                });
+                
+                const testChord = {
+                    tracks: [{
+                        notes: [
+                            {name: "C4", midi: 60, time: 0.0, duration: 1.0, velocity: 0.8},
+                            {name: "E4", midi: 64, time: 0.0, duration: 1.0, velocity: 0.8},
+                            {name: "G4", midi: 67, time: 0.0, duration: 1.0, velocity: 0.8}
+                        ]
+                    }]
+                };
+                
+                piano.loadMidiJson(testChord);
+                piano.play();
+                
+                setTimeout(() => {
+                    piano.stop();
+                    piano.dispose();
+                }, 1500);
+                
+                document.getElementById('test-results').innerHTML += 
+                    '<div class="result info">🔊 Audio test played C major chord</div>';
+                    
+            } catch (error) {
+                document.getElementById('test-results').innerHTML += 
+                    `<div class="result fail">❌ Audio test failed: ${error.message}</div>`;
+            }
+        };
+        
+        window.testMidiFileUpload = function() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.mid,.midi';
+            input.onchange = async function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const midi = new Midi(arrayBuffer);
+                    const piano = new PianoRollCore();
+                    piano.loadMidiJson(midi);
+                    
+                    const notes = piano.getNotes();
+                    document.getElementById('test-results').innerHTML += 
+                        `<div class="result pass">✅ MIDI file loaded: ${notes.length} notes from "${file.name}"</div>`;
+                        
+                } catch (error) {
+                    document.getElementById('test-results').innerHTML += 
+                        `<div class="result fail">❌ MIDI file test failed: ${error.message}</div>`;
+                }
+            };
+            input.click();
+        };
+        
+        window.testUIControls = function() {
+            // Открыть основное приложение в новом окне
+            const newWindow = window.open('./index.html', '_blank');
+            if (newWindow) {
+                document.getElementById('test-results').innerHTML += 
+                    '<div class="result info">📜 Main application opened in new window for UI testing</div>';
+            } else {
+                document.getElementById('test-results').innerHTML += 
+                    '<div class="result warning">⚠️ Please allow popups and manually open index.html for UI testing</div>';
+            }
+        };
+        
+        // Запускаем тесты
+        const integrationTest = new IntegrationTest();
+        integrationTest.runAll();
+        
+        // Глобальные переменные для отладки
+        window.integrationTest = integrationTest;
+        window.PianoRollCore = PianoRollCore;
+        
+    </script>
+</body>
+</html>

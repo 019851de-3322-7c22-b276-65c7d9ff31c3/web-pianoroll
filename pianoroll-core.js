@@ -1,14 +1,9 @@
 // pianoroll-core.js
 
-// Теперь эти импорты будут разрешаться через importmap
-import * as Tone from 'tone';
-import * as Tonal from '@tonaljs/tonal';
-// Tonal.Note и Tonal.Scale уже импортируются через * as Tonal,
-// но для явности и tree-shaking можно импортировать конкретные модули
-// import { Note } from '@tonaljs/note';
-// import { Scale } from '@tonaljs/scale';
-// В данном случае, поскольку мы используем Tonal.Note.get и Tonal.Scale.get,
-// достаточно импорта * as Tonal.
+// Используем глобальные объекты вместо импортов
+// Tone и Tonal должны быть загружены из глобальной области видимости
+const Tone = window.Tone;
+const Tonal = window.Tonal;
 
 class PianoRollCore {
   constructor(options = {}) {
